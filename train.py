@@ -14,8 +14,8 @@ weight_decay = 1e-4
 batch_size = 5
 max_iter = 3000
 
-image_size = [240, 360] # downsize/2
-embed_size = [30, 45]  # image_size/8
+image_size = [120, 180] # downsize/4
+embed_size = [15, 22]  # image_size/8
 embed_dim = 64
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -84,6 +84,7 @@ writer = tf.summary.FileWriter(model_dir)
 '''session'''
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
+    writer.add_graph(sess.graph)
     saver = tf.train.Saver()
     latest_ckpt = tf.train.latest_checkpoint(model_dir)
 
@@ -105,10 +106,10 @@ with tf.Session() as sess:
         if not KMeans_initialized:
             # init kmeans
             sess.run(KMeans.init_op, {images: images_batch})
-
         if i % 10 == 0:
             # update kmeans using minibatch
             sess.run(KMeans.train_op, {images: images_batch})
+        
         if i % 100 != 0:
             # normal training
             _, summary = sess.run([train_op, loss_summary], {images: images_batch, is_training: True})
@@ -137,8 +138,8 @@ with tf.Session() as sess:
                 feat_flat = (feat_flat + 1) / 2
                 tag_embed[j] = feat_flat.reshape(embed_size + [3])
             summary = sess.run(image_summary, {ph_tag_img: tag_img,
-                                               ph_tag_embed: tag_embed,
-                                               ph_pred_img: pred_img})
+                                               ph_pred_img: pred_img,
+                                               ph_tag_embed: tag_embed})
             writer.add_summary(summary, i)
 
         if i % 1000 == 0:
