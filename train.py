@@ -9,78 +9,85 @@ from nets import feature_extractor, colorizer
 # Parameters, TODO: use argparse
 ref_frame = 3
 color_clusters = 10
-lr = 1e-3
+lr = 1e-4
 weight_decay = 1e-4
 batch_size = 5
-max_iter = 3000
+max_iter = 1000
 
 image_size = [120, 180] # downsize/4
 embed_size = [15, 22]  # image_size/8
 embed_dim = 64
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
-model_dir = os.path.join(os.path.dirname(__file__), 'model')
+model_dir = os.path.join(os.path.dirname(__file__), 'model_temp')
 if not os.path.exists(model_dir):
     os.mkdir(model_dir)
 
 '''load data'''
-data = Dataset(data_dir, batch_size, ref_frame, image_size)
-data_loader = data.load_data_batch().repeat().batch(batch_size) # repeat(epoch) or indefinitely
-image_batch = data_loader.make_one_shot_iterator().get_next()
-image_batch = tf.concat([image_batch[...,0:1]*2-1, image_batch[...,1:]], axis=-1) # scale intensity to [-1,1]
+with tf.variable_scope("data_loader", reuse=tf.AUTO_REUSE):
+    data = Dataset(data_dir, batch_size, ref_frame, image_size)
+    data_loader = data.load_data_batch().repeat().batch(batch_size) # repeat(epoch) or indefinitely
+    image_batch = data_loader.make_one_shot_iterator().get_next()
+    image_batch = tf.concat([image_batch[...,0:1]*2-1, image_batch[...,1:]], axis=-1) # scale intensity to [-1,1]
 
 '''build graph'''
-images = tf.placeholder(tf.float32, [None, ref_frame+1] + image_size + [3], name='images')
-is_training = tf.placeholder(tf.bool)
+with tf.variable_scope("input", reuse=tf.AUTO_REUSE):
+    images = tf.placeholder(tf.float32, [None, ref_frame+1] + image_size + [3], name='images')
+    is_training = tf.placeholder(tf.bool)
 
 # color clustering
-KMeans = Clustering(tf.reshape(images[...,1:], [-1,2]), color_clusters)
-images_flat = tf.reshape(images, [-1]+image_size+[3])
-images_for_label = tf.image.resize_images(images_flat, embed_size)
-labels = KMeans.lab_to_labels(images_for_label)
-labels = tf.reshape(labels, [-1, ref_frame+1]+embed_size, name='labels')
+with tf.variable_scope("clustering", reuse=tf.AUTO_REUSE):
+    KMeans = Clustering(tf.reshape(images[...,1:], [-1,2]), color_clusters)
+    images_flat = tf.reshape(images, [-1]+image_size+[3])
+    images_for_label = tf.image.resize_images(images_flat, embed_size)
+    labels = KMeans.lab_to_labels(images_for_label)
+    labels = tf.reshape(labels, [-1, ref_frame+1]+embed_size, name='labels')
 
 # embeddings extraction from intensity
-embeddings = feature_extractor(images[...,0:1], is_training = is_training)
-embeddings = tf.identity(embeddings, name='embeddings')
+with tf.variable_scope("feature_extraction", reuse=tf.AUTO_REUSE):
+    embeddings = feature_extractor(images[...,0:1], is_training = is_training)
+    embeddings = tf.identity(embeddings, name='embeddings')
 
 # predict color based on similarity
-losses = tf.zeros([0,1], dtype=tf.float32)
-predictions = tf.zeros([0,1]+embed_size+[color_clusters])
-predictions_lab = tf.zeros([0,1]+embed_size+[3])
+with tf.variable_scope("colorization", reuse=tf.AUTO_REUSE):
+    losses = tf.zeros([0,1], dtype=tf.float32)
+    predictions = tf.zeros([0,1]+embed_size+[color_clusters])
+    predictions_lab = tf.zeros([0,1]+embed_size+[3])
 
-for i in range(batch_size):
-    embedding = embeddings[i]
-    label = labels[i]
+    for i in range(batch_size):
+        embedding = embeddings[i]
+        label = labels[i]
 
-    results = colorizer(embedding[:ref_frame], tf.one_hot(label[:ref_frame], color_clusters),
-                           embedding[ref_frame:], label[ref_frame:])
-    mean_losses = tf.reduce_mean(tf.reduce_mean(results['losses'], 2), 1)
-    pred = results['predictions']
+        results = colorizer(embedding[:ref_frame], tf.one_hot(label[:ref_frame], color_clusters),
+                            embedding[ref_frame:], label[ref_frame:])
+        mean_losses = tf.reduce_mean(tf.reduce_mean(results['losses'], 2), 1)
+        pred = results['predictions']
 
-    losses = tf.concat([losses, tf.expand_dims(mean_losses, 0)], 0)
-    predictions = tf.concat([predictions, tf.expand_dims(pred, 0)], 0)
-    predictions_lab = tf.concat([predictions_lab, tf.expand_dims(KMeans.labels_to_lab(pred), 0)], 0)
+        losses = tf.concat([losses, tf.expand_dims(mean_losses, 0)], 0)
+        predictions = tf.concat([predictions, tf.expand_dims(pred, 0)], 0)
+        predictions_lab = tf.concat([predictions_lab, tf.expand_dims(KMeans.labels_to_lab(pred), 0)], 0)
 
-predictions = tf.identity(predictions, name='predictions')
-predictions_lab = tf.identity(predictions_lab, name='predictions_lab')
-losses = tf.identity(losses, name='losses')
+    predictions = tf.identity(predictions, name='predictions')
+    predictions_lab = tf.identity(predictions_lab, name='predictions_lab')
+    losses = tf.identity(losses, name='losses')
 
 '''training'''
-loss = tf.reduce_mean(losses)
-update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-with tf.control_dependencies(update_ops):
-    train_op = tf.train.AdamOptimizer(learning_rate = lr).minimize(loss)
+with tf.variable_scope("training", reuse=tf.AUTO_REUSE):
+    loss = tf.reduce_mean(losses)
+    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    with tf.control_dependencies(update_ops):
+        train_op = tf.train.AdamOptimizer(learning_rate = lr).minimize(loss)
 
 '''summary'''
-loss_summary = tf.summary.scalar('loss', loss)
-ph_tag_img = tf.placeholder(tf.float32, shape=[None,None,None,3])
-ph_pred_img = tf.placeholder(tf.float32, shape=[None,None,None,3])
-ph_tag_embed = tf.placeholder(tf.float32, shape=[None,None,None,3])
-image_summary = tf.summary.merge([tf.summary.image('target_image', ph_tag_img),
-                                  tf.summary.image('visualized_prediction', ph_pred_img),
-                                  tf.summary.image('visualized_feature', ph_tag_embed)])
-writer = tf.summary.FileWriter(model_dir)
+with tf.variable_scope("summary", reuse=tf.AUTO_REUSE):
+    loss_summary = tf.summary.scalar('loss', loss)
+    ph_tag_img = tf.placeholder(tf.float32, shape=[None,None,None,3])
+    ph_pred_img = tf.placeholder(tf.float32, shape=[None,None,None,3])
+    ph_tag_embed = tf.placeholder(tf.float32, shape=[None,None,None,3])
+    image_summary = tf.summary.merge([tf.summary.image('target_image', ph_tag_img),
+                                      tf.summary.image('visualized_prediction', ph_pred_img),
+                                      tf.summary.image('visualized_feature', ph_tag_embed)])
+    writer = tf.summary.FileWriter(model_dir)
 
 '''session'''
 with tf.Session() as sess:
@@ -144,6 +151,6 @@ with tf.Session() as sess:
                                                ph_tag_embed: tag_embed})
             writer.add_summary(summary, i)
 
-        if i % 1000 == 0:
+        if i % 200 == 0:
             # save the model
             saver.save(sess, os.path.join(model_dir, 'model.ckpt'), global_step=i)

@@ -13,12 +13,12 @@ def conv3d_block(input, output_dim, kernel, dilation, name, activation=True, is_
         return block
 
 def feature_extractor(images, is_training):
-    # [N,T,H,W,C] -> [N*T,H,W,C]
-    org_shape = tf.shape(images)
-    images = tf.reshape(images, tf.concat([[-1],org_shape[2:]], axis=0))
-
     # use tf slim to build ResNet18
     with tf.variable_scope('resnet', reuse=tf.AUTO_REUSE):
+        # [N,T,H,W,C] -> [N*T,H,W,C]
+        org_shape = tf.shape(images)
+        images = tf.reshape(images, tf.concat([[-1],org_shape[2:]], axis=0))
+        
         blocks = [
             resnet_v2.resnet_v2_block('block1', base_depth=64, num_units=2, stride=1),
             resnet_v2.resnet_v2_block('block2', base_depth=128, num_units=2, stride=2),
@@ -28,13 +28,22 @@ def feature_extractor(images, is_training):
         _, end_points = resnet_v2.resnet_v2(images, blocks, is_training=is_training, include_root_block=True)
         # root 7*7 conv + 3*3 maxpool with stride 2
         # Note: modify depth in b4(512->256) and stride in b3b4(2->1)
-
-    net = end_points['resnet/resnet_v2/block4'] # because we don't want fc, pooling or softmax at end
-
-    # [N*T,H',W',C'] -> [N,T,H',W',C']
-    net = tf.reshape(net, tf.concat([org_shape[:2], tf.shape(net)[1:]], axis=0))
-
+    
+    	net = end_points['feature_extraction/resnet/resnet_v2/block4'] 
+        # because we don't want fc, pooling or softmax at end
+    
     with tf.variable_scope('conv3d', reuse=tf.AUTO_REUSE):
+    	# [N*T,H',W',C'] -> [N,T,H',W',C']
+    	net = tf.reshape(net, tf.concat([org_shape[:2], tf.shape(net)[1:]], axis=0))
+        
+        '''
+    	# concat spatial info
+    	y = tf.lin_space(-1., 1., org_shape[2])
+    	x = tf.lin_space(-1., 1., org_shape[3])
+    	X, Y = tf.meshgrid(x, y)
+        X = tf.broadcast_to()
+        ''' 
+
         net = conv3d_block(net, 256, 3, 1, name='conv1', is_training=is_training)
         net = conv3d_block(net, 256, 3, 2, name='conv2', is_training=is_training)
         net = conv3d_block(net, 256, 3, 4, name='conv3', is_training=is_training)

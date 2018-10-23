@@ -1,7 +1,6 @@
 import tensorflow as tf
 from tensorflow.contrib.factorization import KMeans
 
-# creates operations in the default graph
 class Clustering:
     def __init__(self, inputs, clusters, mini_batch_steps_per_iteration=100):
         self.clusters = tf.convert_to_tensor(clusters)
@@ -9,7 +8,7 @@ class Clustering:
                              use_mini_batch=True,
                              mini_batch_steps_per_iteration=mini_batch_steps_per_iteration)
         out = self.kmeans.training_graph()
-        self.cluster_centers = tf.get_default_graph().get_tensor_by_name('clusters:0')
+        self.cluster_centers = tf.get_default_graph().get_tensor_by_name('clustering/clusters:0')
         self.all_scores = out[0][0]
         self.cluster_index = out[1][0]
         self.scores = out[2][0]
