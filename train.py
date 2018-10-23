@@ -24,15 +24,15 @@ if not os.path.exists(model_dir):
     os.mkdir(model_dir)
 
 '''load data'''
-images = tf.placeholder(tf.float32, [None, ref_frame+1] + image_size + [3], name='images')
-is_training = tf.placeholder(tf.bool)
-
 data = Dataset(data_dir, batch_size, ref_frame, image_size)
 data_loader = data.load_data_batch().repeat().batch(batch_size) # repeat(epoch) or indefinitely
 image_batch = data_loader.make_one_shot_iterator().get_next()
-image_batch[...,0] = 2*image_batch[...,0]-1 # scale intensity to [-1,1]
+image_batch = tf.concat([image_batch[...,0:1]*2-1, image_batch[...,1:]], axis=-1) # scale intensity to [-1,1]
 
 '''build graph'''
+images = tf.placeholder(tf.float32, [None, ref_frame+1] + image_size + [3], name='images')
+is_training = tf.placeholder(tf.bool)
+
 # color clustering
 KMeans = Clustering(tf.reshape(images[...,1:], [-1,2]), color_clusters)
 images_flat = tf.reshape(images, [-1]+image_size+[3])
