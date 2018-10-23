@@ -14,8 +14,8 @@ weight_decay = 1e-4
 batch_size = 5
 max_iter = 3000
 
-image_size = [480, 720]
-embed_size = [60, 90]  # image_size/8
+image_size = [240, 360] # downsize/2
+embed_size = [30, 45]  # image_size/8
 embed_dim = 64
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')

@@ -9,7 +9,7 @@ class Dataset:
         self.vid_dirs = []
         self.batch_size = batch_size
         self.ref_frame = ref_frame
-        self.image_size = image_size
+        self.image_size = tuple(image_size)
         self.frames = np.zeros([self.ref_frame + 1, self.image_size[0], self.image_size[1], 3])
 
     def split_video(self):
@@ -59,7 +59,8 @@ class Dataset:
 
             # init
             for i in range(0, self.ref_frame+1):
-                self.frames[i] = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB)
+                org_frame = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB)
+                self.frames[i] = cv2.resize(org_frame, self.image_size[::-1]) # note cv2.resize w*h
 
             # update frames batch
             for i in range(self.ref_frame, length):
@@ -67,7 +68,8 @@ class Dataset:
                     yield self.frames
                 else:
                     self.frames[:-1] = self.frames[1:]
-                    self.frames[-1] = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB)
+                    org_frame = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB)
+                    self.frames[-1] = cv2.resize(org_frame, self.image_size[::-1])
                     yield self.frames
 
             # # load with stride (ref_frame+1)
@@ -78,5 +80,5 @@ class Dataset:
             #     yield frames
 
 if __name__ == '__main__':
-    data = Dataset(dir='./data', batch_size=5, ref_frame=3, image_size=[480, 720])
+    data = Dataset(dir='./data', batch_size=5, ref_frame=3, image_size=[240, 360])
     data.split_video()
