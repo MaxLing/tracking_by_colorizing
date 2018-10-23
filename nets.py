@@ -19,16 +19,17 @@ def feature_extractor(images, is_training):
         org_shape = tf.shape(images)
         images = tf.reshape(images, tf.concat([[-1],org_shape[2:]], axis=0))
         
-        blocks = [
-            resnet_v2.resnet_v2_block('block1', base_depth=64, num_units=2, stride=1),
-            resnet_v2.resnet_v2_block('block2', base_depth=128, num_units=2, stride=2),
-            resnet_v2.resnet_v2_block('block3', base_depth=256, num_units=2, stride=1),
-            resnet_v2.resnet_v2_block('block4', base_depth=256, num_units=2, stride=1)
-        ]
-        _, end_points = resnet_v2.resnet_v2(images, blocks, is_training=is_training, include_root_block=True)
+        with slim.arg_scope(resnet_v2.resnet_arg_scope()):
+            blocks = [
+                resnet_v2.resnet_v2_block('block1', base_depth=64, num_units=2, stride=1),
+                resnet_v2.resnet_v2_block('block2', base_depth=128, num_units=2, stride=2),
+                resnet_v2.resnet_v2_block('block3', base_depth=256, num_units=2, stride=1),
+                resnet_v2.resnet_v2_block('block4', base_depth=256, num_units=2, stride=1)
+            ]
+            _, end_points = resnet_v2.resnet_v2(images, blocks, is_training=is_training, include_root_block=True)
         # root 7*7 conv + 3*3 maxpool with stride 2
         # Note: modify depth in b4(512->256) and stride in b3b4(2->1)
-    
+
     	net = end_points['feature_extraction/resnet/resnet_v2/block4'] 
         # because we don't want fc, pooling or softmax at end
     
