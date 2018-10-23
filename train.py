@@ -8,7 +8,7 @@ from nets import feature_extractor, colorizer
 
 # Parameters, TODO: use argparse
 ref_frame = 3
-color_clusters = 16
+color_clusters = 10
 lr = 1e-3
 weight_decay = 1e-4
 batch_size = 5
@@ -98,6 +98,7 @@ with tf.Session() as sess:
     pca = PCA(n_components=3) # for embedding visualization
 
     for i in range(max_iter):
+        print ('iteration ' + str(i))
         # load image batch
         images_batch = sess.run(image_batch)
 
@@ -126,7 +127,7 @@ with tf.Session() as sess:
                 tag_img[j] = cv2.cvtColor(img, cv2.COLOR_LAB2RGB)
 
                 pred = preds[j, 0] # [N, 1, H, W, 3]
-                pred = np.dstack([img[:, :, 0:1], cv2.resize(pred[:, :, 1:], image_size)])
+                pred = np.dstack([img[:, :, 0:1], cv2.resize(pred[:, :, 1:], tuple(image_size)[::-1])])
                 pred_img[j] = cv2.cvtColor(pred, cv2.COLOR_LAB2RGB)
 
                 feat_flat = feats[j, ref_frame].reshape(-1, embed_dim)
