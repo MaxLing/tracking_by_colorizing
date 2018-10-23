@@ -30,6 +30,7 @@ is_training = tf.placeholder(tf.bool)
 data = Dataset(data_dir, batch_size, ref_frame, image_size)
 data_loader = data.load_data_batch().repeat().batch(batch_size) # repeat(epoch) or indefinitely
 image_batch = data_loader.make_one_shot_iterator().get_next()
+image_batch[...,0] = 2*image_batch[...,0]-1 # scale intensity to [-1,1]
 
 '''build graph'''
 # color clustering
@@ -125,6 +126,7 @@ with tf.Session() as sess:
             pred_img = np.zeros([batch_size] + image_size + [3])
             for j in range(batch_size):
                 img = images_batch[j, ref_frame]
+                img[...,0] = (img[...,0]+1)/2 # scale back to [0,1]
                 tag_img[j] = cv2.cvtColor(img, cv2.COLOR_LAB2RGB)
 
                 pred = preds[j, 0] # [N, 1, H, W, 3]
