@@ -34,16 +34,17 @@ def feature_extractor(images, is_training):
         # because we don't want fc, pooling or softmax at end
     
     with tf.variable_scope('conv3d', reuse=tf.AUTO_REUSE):
-    	# [N*T,H',W',C'] -> [N,T,H',W',C']
-    	net = tf.reshape(net, tf.concat([org_shape[:2], tf.shape(net)[1:]], axis=0))
+        # [N*T,H',W',C'] -> [N,T,H',W',C']
+        feat_shape = tf.concat([org_shape[:2], tf.shape(net)[1:]], axis=0)
+        net = tf.reshape(net, feat_shape)
         
-        '''
-    	# concat spatial info
-    	y = tf.lin_space(-1., 1., org_shape[2])
-    	x = tf.lin_space(-1., 1., org_shape[3])
-    	X, Y = tf.meshgrid(x, y)
-        X = tf.broadcast_to()
-        ''' 
+    	## concat spatial info
+        #y = tf.lin_space(-1., 1., feat_shape[2])
+        #x = tf.lin_space(-1., 1., feat_shape[3])
+    	#X, Y = tf.meshgrid(x, y)
+        #X = tf.expand_dims(tf.broadcast_to(X, feat_shape[:-1]), axis=-1)
+        #Y = tf.expand_dims(tf.broadcast_to(Y, feat_shape[:-1]), axis=-1)
+        #net = tf.concat([net, X, Y], axis=-1) 
 
         net = conv3d_block(net, 256, 3, 1, name='conv1', is_training=is_training)
         net = conv3d_block(net, 256, 3, 2, name='conv2', is_training=is_training)
