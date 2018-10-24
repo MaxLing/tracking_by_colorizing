@@ -56,7 +56,7 @@ class Dataset:
             print('reading video ' + vid_dir)
             frame_list = sorted(os.listdir(vid_dir))
             length = len(frame_list)
-
+            
             # init
             for i in range(0, self.ref_frame+1):
                 org_frame = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB)
@@ -76,7 +76,8 @@ class Dataset:
             # frames = np.zeros([self.ref_frame + 1, self.image_size[0], self.image_size[1], 3])
             # for i in range(0, length-self.ref_frame+1, self.ref_frame+1):
             #     for j in range(0, self.ref_frame+1):
-            #         frames[j] = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i+j])/255.), cv2.COLOR_BGR2LAB)
+            #         org_frame = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i+j])/255.), cv2.COLOR_BGR2LAB)
+            #         frames[j] = cv2.resize(org_frame, self.image_size[::-1])
             #     yield frames
 
 if __name__ == '__main__':
