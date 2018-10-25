@@ -29,6 +29,9 @@ class Dataset:
                 if not ret:
                     break
                 else:
+                    # crop black bound of frame, specific to video data!!!
+                    frame = frame[55:425,...]
+
                     cv2.imwrite(vid_dir + '/Frame{:04d}.png'.format(count), frame)
                     print('frame {:04d} captured'.format(count))
                     count += 1
@@ -39,6 +42,18 @@ class Dataset:
         with open(self.dir+'/video_dirs.txt', 'w') as f:
             for vid_dir in self.vid_dirs:
                 f.write("{:s}\n".format(vid_dir))
+
+    def crop_mask(self):
+        # crop mask also
+	for vid_dir in self.vid_dirs:
+	    group = vid_dir.split('/')
+            mask_dir = group[0]+'/'+group[1]+'/mask_'+group[2]
+            
+            for mask in os.listdir(mask_dir):
+	        frame = cv2.imread(mask_dir+'/'+mask, cv2.IMREAD_GRAYSCALE)
+                frame = frame[55:425,...]
+                cv2.imwrite(mask_dir+'/'+mask, frame)
+                print('mask '+mask_dir+'/'+mask+' cropped')
 
     def load_data_batch(self):
         # load video dirs if necessary
@@ -83,3 +98,4 @@ class Dataset:
 if __name__ == '__main__':
     data = Dataset(dir='./data', batch_size=5, ref_frame=3, image_size=[240, 360])
     data.split_video()
+    data.crop_mask()
