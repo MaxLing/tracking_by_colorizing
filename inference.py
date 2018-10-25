@@ -6,8 +6,8 @@ from nets import colorizer
 # Parameters
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
 model_dir = os.path.join(os.path.dirname(__file__), 'model')
-image_size = (120, 180) # downsize/4
-embed_size = (15, 23)  # image_size/8
+image_size = (92, 180) # crop downsize/4
+embed_size = (12, 23)  # image_size/8
 ref_frame = 3
 label_types = 6
 temperature = 0.5
