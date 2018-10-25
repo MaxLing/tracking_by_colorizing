@@ -13,8 +13,8 @@ lr = 1e-4
 batch_size = 5
 max_iter = 1000
 
-image_size = [120, 180] # downsize/4
-embed_size = [15, 23]  # image_size/8
+image_size = [92, 180] # [480, 720]-crop->[370,720] downsize/4
+embed_size = [12, 23]  # image_size/8
 embed_dim = 64
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
