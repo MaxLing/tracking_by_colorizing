@@ -15,11 +15,11 @@ batch_size = 5
 max_iter = 1000
 
 image_size = [120, 180] # downsize/4
-embed_size = [15, 22]  # image_size/8
+embed_size = [15, 23]  # image_size/8
 embed_dim = 64
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
-model_dir = os.path.join(os.path.dirname(__file__), 'model_temp')
+model_dir = os.path.join(os.path.dirname(__file__), 'model')
 if not os.path.exists(model_dir):
     os.mkdir(model_dir)
 
@@ -151,6 +151,6 @@ with tf.Session() as sess:
                                                ph_tag_embed: tag_embed})
             writer.add_summary(summary, i)
 
-        if i % 200 == 0:
+        if (i+1) % 200 == 0:
             # save the model
             saver.save(sess, os.path.join(model_dir, 'model.ckpt'), global_step=i)
