@@ -29,7 +29,7 @@ class Dataset:
                 if not ret:
                     break
                 else:
-                    cv2.imwrite(vid_dir + '/Frame{:04d}.jpg'.format(count), frame)
+                    cv2.imwrite(vid_dir + '/Frame{:04d}.png'.format(count), frame)
                     print('frame {:04d} captured'.format(count))
                     count += 1
             capture.release()
