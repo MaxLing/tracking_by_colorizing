@@ -10,7 +10,6 @@ from nets import feature_extractor, colorizer
 ref_frame = 3
 color_clusters = 10
 lr = 1e-4
-weight_decay = 1e-4
 batch_size = 5
 max_iter = 1000
 
@@ -33,7 +32,7 @@ with tf.variable_scope("data_loader", reuse=tf.AUTO_REUSE):
 '''build graph'''
 with tf.variable_scope("input", reuse=tf.AUTO_REUSE):
     images = tf.placeholder(tf.float32, [None, ref_frame+1] + image_size + [3], name='images')
-    is_training = tf.placeholder(tf.bool)
+    is_training = tf.placeholder(tf.bool, name='is_training')
 
 # color clustering
 with tf.variable_scope("clustering", reuse=tf.AUTO_REUSE):
