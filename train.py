@@ -101,7 +101,7 @@ with tf.Session() as sess:
         KMeans_initialized = True
     else:
         print('Starting with a new model')
-        saver.save(sess, os.path.join(model_dir, 'model'))
+        tf.train.export_meta_graph(os.path.join(model_dir, 'model.meta'))
         KMeans_initialized = False
 
     pca = PCA(n_components=3) # for embedding visualization
