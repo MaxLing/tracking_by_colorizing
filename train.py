@@ -1,4 +1,4 @@
-import os, cv2
+import os, cv2, pickle
 import tensorflow as tf
 import numpy as np
 from sklearn.decomposition import PCA
@@ -15,6 +15,8 @@ max_iter = 1000
 
 image_size = [92, 180] # [480, 720]-crop->[370,720] downsize/4
 embed_size = [12, 23]  # image_size/8
+#image_size = [185, 360] # downsize/2
+#embed_size = [24,45]
 embed_dim = 64
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -154,3 +156,6 @@ with tf.Session() as sess:
         if (i+1) % 200 == 0:
             # save the model
             saver.save(sess, os.path.join(model_dir, 'model.ckpt'), global_step=i, write_meta_graph=False)
+            # save pca (overwrite) for embedding visualization
+            with open(os.path.join(model_dir, 'pca.pkl'), 'wb') as f:
+	        pickle.dump(pca, f)
