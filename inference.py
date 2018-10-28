@@ -61,6 +61,24 @@ def apply_mask(frame, mask):
     cv2.addWeighted(color, alpha, image, 1-alpha, 0, image)
     return np.uint8(image)
 
+def lab_to_labels(images, cluster_centers):
+    a = tf.reshape(cluster_centers[:,0], [1,1,1,-1])
+    b = tf.reshape(cluster_centers[:,1], [1,1,1,-1])
+    da = tf.expand_dims(images[:,:,:,1],3) - a
+    db = tf.expand_dims(images[:,:,:,2],3) - b
+    d = tf.square(da) + tf.square(db)
+    return tf.argmin(d, 3)
+
+def labels_to_lab(labels, cluster_centers):
+    if labels.dtype in [tf.float16, tf.float32, tf.float64]: # soft label
+        l = tf.cast(tf.expand_dims(labels,-1), tf.float32)
+        c = tf.reshape(cluster_centers, [1,1,1,-1,2])
+        ab = tf.reduce_sum(l * c, 3)
+    else:
+        ab = tf.gather(cluster_centers, labels) # hard label
+    l = tf.ones(tf.shape(ab)[:-1], tf.float32) * 75
+    return tf.concat([tf.expand_dims(l,-1), ab], 3)
+
 # read video and corresponding label dirs
 with open(data_dir + '/video_dirs.txt', 'r') as f:
     video_dirs = f.read().splitlines()
@@ -81,13 +99,17 @@ with tf.Graph().as_default() as graph:
     embeddings = graph.get_tensor_by_name('feature_extraction/embeddings:0')  # [N, T, H', W', D]
     is_training = graph.get_tensor_by_name('input/is_training:0') # new model
     # is_training = graph.get_tensor_by_name('input/Placeholder:0') # old model
+    cluster_centers = graph.get_tensor_by_name('clustering/clusters:0')
 
     # labels input
     labels = tf.placeholder(tf.float32, [ref_frame, embed_size[0], embed_size[1], label_types])
+    labels_color = tf.reshape(lab_to_labels(tf.image.resize_images(tf.reshape(images, (-1,)+image_size+(3,)),embed_size), cluster_centers), (ref_frame+1,)+embed_size)
 
-    # get similarity matrix to track
-    results = colorizer(embeddings[0,:ref_frame], labels, embeddings[0, ref_frame:], temperature=temperature)
-    predictions = results['predictions']
+    # track segmentation and color
+    results_seg = colorizer(embeddings[0,:ref_frame], labels, embeddings[0, ref_frame:], temperature=temperature)
+    predictions_seg = results_seg['predictions']
+    results_color = colorizer(embeddings[0,:ref_frame], tf.one_hot(labels_color[:ref_frame], tf.shape(cluster_centers)[0]), embeddings[0, ref_frame:], temperature=temperature)
+    predictions_color = tf.concat([(images[0,ref_frame:,:,:,0:1]+1)/2, tf.image.resize_images(labels_to_lab(results_color['predictions'], cluster_centers)[...,1:], image_size)], axis=-1)
 
 
 '''session'''
@@ -117,16 +139,20 @@ with tf.Session(graph=graph) as sess:
     # init video writer
     outfile = output_dir + '/' + video_dir.split('/')[-1]
     outfile_embed = output_dir + '/embed_' + video_dir.split('/')[-1]
+    outfile_color = output_dir + '/color_' + video_dir.split('/')[-1]
     fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')
     video = cv2.VideoWriter(filename=outfile, fourcc=fourcc, fps=30.0, frameSize=image_size[::-1])
     video_embed = cv2.VideoWriter(filename=outfile_embed, fourcc=fourcc, fps=30.0, frameSize=embed_size[::-1])
+    video_color = cv2.VideoWriter(filename=outfile_color, fourcc=fourcc, fps=30.0, frameSize=image_size[::-1])
+
     for i in range(ref_frame, len(frame_list)):
         print('iteration ' + str(i))
-        pred, pred_embed = sess.run([predictions,embeddings], {images: [image_preprocess(frames)],
-                                      labels: masks,
-                                      is_training: False})
+        pred, pred_color, pred_embed = sess.run([predictions_seg, predictions_color, embeddings], 
+                                                {images: [image_preprocess(frames)],
+                                                 labels: masks,
+                                                 is_training: False})
         pred_mask = cv2.resize(pred[0], image_size[::-1])
-
+ 
         feat_flat = pred_embed[0,-1].reshape((-1, pred_embed.shape[-1]))
         feat_flat = pca.transform(feat_flat)
         feat_flat /= np.abs(feat_flat).max()
@@ -135,6 +161,7 @@ with tf.Session(graph=graph) as sess:
         # write to video
         video.write(apply_mask(frames[-1], pred_mask))
         video_embed.write(np.uint8(feat_flat.reshape(embed_size+(3,))*255.))
+        video_color.write(np.uint8(cv2.cvtColor(pred_color[0], cv2.COLOR_LAB2BGR)*255.))
 
         # stop update at the end
         if i==len(frame_list)-1:
@@ -158,6 +185,7 @@ with tf.Session(graph=graph) as sess:
     # end capture
     video.release()
     video_embed.release()
+    video_color.release()
 
 
 
