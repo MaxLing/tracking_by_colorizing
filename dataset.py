@@ -1,6 +1,7 @@
 import os, cv2
 import numpy as np
 import tensorflow as tf
+import matplotlib._png as png
 from itertools import cycle
 
 class Dataset:
@@ -44,13 +45,13 @@ class Dataset:
                 f.write("{:s}\n".format(vid_dir))
 
     def crop_mask(self):
-        # crop mask also
+        # crop mask, use matplotlib can read the mask(uint6)
 	for vid_dir in self.vid_dirs:
 	    group = vid_dir.split('/')
             mask_dir = group[0]+'/'+group[1]+'/mask_'+group[2]
             
             for mask in os.listdir(mask_dir):
-	        frame = cv2.imread(mask_dir+'/'+mask, cv2.IMREAD_GRAYSCALE)
+	        frame = np.uint8(png.read_png_int(mask_dir+'/'+mask))
                 frame = frame[55:425,...]
                 cv2.imwrite(mask_dir+'/'+mask, frame)
                 print('mask '+mask_dir+'/'+mask+' cropped')
