@@ -9,7 +9,7 @@ data_dir = os.path.join(os.path.dirname(__file__), 'data')
 model_dir = os.path.join(os.path.dirname(__file__), 'model')
 image_size = (92, 180) # crop downsize/4
 embed_size = (12, 23)  # image_size/8
-#image_size = (185,260) # downsize/2
+#image_size = (185,360) # downsize/2
 #embed_size = (24,45)
 ref_frame = 3
 label_types = 6
@@ -110,7 +110,6 @@ with tf.Graph().as_default() as graph:
     predictions_seg = results_seg['predictions']
     results_color = colorizer(embeddings[0,:ref_frame], tf.one_hot(labels_color[:ref_frame], tf.shape(cluster_centers)[0]), embeddings[0, ref_frame:], temperature=temperature)
     predictions_color = tf.concat([(images[0,ref_frame:,:,:,0:1]+1)/2, tf.image.resize_images(labels_to_lab(results_color['predictions'], cluster_centers)[...,1:], image_size)], axis=-1)
-
 
 '''session'''
 with tf.Session(graph=graph) as sess:

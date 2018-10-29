@@ -75,8 +75,7 @@ class Dataset:
             
             # init
             for i in range(0, self.ref_frame+1):
-                org_frame = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB)
-                self.frames[i] = cv2.resize(org_frame, self.image_size[::-1]) # note cv2.resize w*h
+                self.frames[i] = cv2.resize(cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB), self.image_size[::-1])
 
             # update frames batch
             for i in range(self.ref_frame, length):
@@ -84,8 +83,7 @@ class Dataset:
                     yield self.frames
                 else:
                     self.frames[:-1] = self.frames[1:]
-                    org_frame = cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB)
-                    self.frames[-1] = cv2.resize(org_frame, self.image_size[::-1])
+                    self.frames[-1] = cv2.resize(cv2.cvtColor(np.float32(cv2.imread(vid_dir+'/'+frame_list[i])/255.), cv2.COLOR_BGR2LAB), self.image_size[::-1])
                     yield self.frames
 
             # # load with stride (ref_frame+1)
