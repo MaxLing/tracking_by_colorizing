@@ -46,12 +46,12 @@ class Dataset:
 
     def crop_mask(self):
         # crop mask, use matplotlib can read the mask(uint6)
-	for vid_dir in self.vid_dirs:
-	    group = vid_dir.split('/')
+        for vid_dir in self.vid_dirs:
+            group = vid_dir.split('/')
             mask_dir = group[0]+'/'+group[1]+'/mask_'+group[2]
             
             for mask in os.listdir(mask_dir):
-	        frame = np.uint8(png.read_png_int(mask_dir+'/'+mask))
+                frame = np.uint8(png.read_png_int(mask_dir+'/'+mask))
                 frame = frame[55:425,...]
                 cv2.imwrite(mask_dir+'/'+mask, frame)
                 print('mask '+mask_dir+'/'+mask+' cropped')

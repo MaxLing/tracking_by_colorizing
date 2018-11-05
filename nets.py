@@ -30,7 +30,7 @@ def feature_extractor(images, is_training):
         # root 7*7 conv + 3*3 maxpool with stride 2
         # Note: modify depth in b4(512->256) and stride in b3b4(2->1)
 
-    	net = end_points['feature_extraction/resnet/resnet_v2/block4'] 
+        net = end_points['feature_extraction/resnet/resnet_v2/block4'] 
         # because we don't want fc, pooling or softmax at end
     
     with tf.variable_scope('conv3d', reuse=tf.AUTO_REUSE):
