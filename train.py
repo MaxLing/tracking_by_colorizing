@@ -10,13 +10,14 @@ from nets import feature_extractor, colorizer
 ref_frame = 3
 color_clusters = 10
 lr = 1e-4
-batch_size = 5
+batch_size = 4
 max_iter = 1000
 
-image_size = [92, 180] # [480, 720]-crop->[370,720] downsize/4
-embed_size = [12, 23]  # image_size/8
-#image_size = [185, 360] # downsize/2
-#embed_size = [24,45]
+#image_size = [92, 180] # [480, 720]-crop->[370,720] downsize/4
+#embed_size = [12, 23]  # image_size/8
+image_size = [185, 360] # downsize/2
+embed_size = [24,45]
+#embed_size = [47,90] # image_size/4
 embed_dim = 64
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -158,4 +159,4 @@ with tf.Session() as sess:
             saver.save(sess, os.path.join(model_dir, 'model.ckpt'), global_step=i, write_meta_graph=False)
             # save pca (overwrite) for embedding visualization
             with open(os.path.join(model_dir, 'pca.pkl'), 'wb') as f:
-	        pickle.dump(pca, f)
+                pickle.dump(pca, f)

@@ -7,11 +7,13 @@ from nets import colorizer
 # Parameters
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
 model_dir = os.path.join(os.path.dirname(__file__), 'model')
-image_size = (92, 180) # crop downsize/4
-embed_size = (12, 23)  # image_size/8
-#image_size = (185,360) # downsize/2
-#embed_size = (24,45)
+#image_size = (92, 180) # crop downsize/4
+#embed_size = (12, 23)  # image_size/8
+image_size = (185,360) # downsize/2
+embed_size = (24,45)
+#embed_size = (47,90)
 ref_frame = 3
+color_clusters = 10
 label_types = 6
 temperature = 0.5
 alpha = 0.4
@@ -55,7 +57,7 @@ def apply_mask(frame, mask):
     # use argmax to determine segmentation [h,w]  
     mask = np.argmax(mask, axis=2)
     for type in range(1,label_types): # no mask on no class
-	color[np.where(mask==type)] = np.uint8(colors[type])
+        color[np.where(mask==type)] = np.uint8(colors[type])
 
     # apply alpha transparency mask
     cv2.addWeighted(color, alpha, image, 1-alpha, 0, image)
@@ -91,14 +93,12 @@ for video_dir in video_dirs:
 
 '''load trained model'''
 with tf.Graph().as_default() as graph:
-    saver = tf.train.import_meta_graph(os.path.join(model_dir, 'model.meta')) # new model
-    # saver = tf.train.import_meta_graph(os.path.join(model_dir, 'model.ckpt-199.meta')) # old model
+    saver = tf.train.import_meta_graph(os.path.join(model_dir, 'model.meta')) # load model
 
     # get tensors
     images = graph.get_tensor_by_name('input/images:0') # [N, T, H, W, 3]
     embeddings = graph.get_tensor_by_name('feature_extraction/embeddings:0')  # [N, T, H', W', D]
-    is_training = graph.get_tensor_by_name('input/is_training:0') # new model
-    # is_training = graph.get_tensor_by_name('input/Placeholder:0') # old model
+    is_training = graph.get_tensor_by_name('input/is_training:0')
     cluster_centers = graph.get_tensor_by_name('clustering/clusters:0')
 
     # labels input
@@ -106,9 +106,9 @@ with tf.Graph().as_default() as graph:
     labels_color = tf.reshape(lab_to_labels(tf.image.resize_images(tf.reshape(images, (-1,)+image_size+(3,)),embed_size), cluster_centers), (ref_frame+1,)+embed_size)
 
     # track segmentation and color
-    results_seg = colorizer(embeddings[0,:ref_frame], labels, embeddings[0, ref_frame:], temperature=temperature)
+    results_seg = colorizer(embeddings[0,:ref_frame], labels, embeddings[0, ref_frame:], temperature=temperature, window=5)
     predictions_seg = results_seg['predictions']
-    results_color = colorizer(embeddings[0,:ref_frame], tf.one_hot(labels_color[:ref_frame], tf.shape(cluster_centers)[0]), embeddings[0, ref_frame:], temperature=temperature)
+    results_color = colorizer(embeddings[0,:ref_frame], tf.one_hot(labels_color[:ref_frame], color_clusters), embeddings[0, ref_frame:], temperature=temperature, window=5)
     predictions_color = tf.concat([(images[0,ref_frame:,:,:,0:1]+1)/2, tf.image.resize_images(labels_to_lab(results_color['predictions'], cluster_centers)[...,1:], image_size)], axis=-1)
 
 '''session'''
@@ -124,7 +124,7 @@ with tf.Session(graph=graph) as sess:
     frames = np.zeros([ref_frame+1, image_size[0], image_size[1], 3])
     masks = np.zeros([ref_frame, embed_size[0], embed_size[1], label_types])
     # read pca for embedding visualization
-    with open(os.path.join(model_dir, 'pca.pkl'), 'r') as f:
+    with open(os.path.join(model_dir, 'pca.pkl'), 'rb') as f:
     	pca = pickle.load(f)    
 
     # init
