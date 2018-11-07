@@ -22,8 +22,8 @@ def feature_extractor(images, is_training):
         with slim.arg_scope(resnet_v2.resnet_arg_scope()):
             blocks = [
                 resnet_v2.resnet_v2_block('block1', base_depth=64, num_units=2, stride=1),
-                resnet_v2.resnet_v2_block('block2', base_depth=128, num_units=2, stride=2),
-                resnet_v2.resnet_v2_block('block3', base_depth=256, num_units=2, stride=1),
+                resnet_v2.resnet_v2_block('block2', base_depth=128, num_units=2, stride=1),
+                #resnet_v2.resnet_v2_block('block3', base_depth=256, num_units=2, stride=1),
                 resnet_v2.resnet_v2_block('block4', base_depth=256, num_units=2, stride=1)
             ]
             _, end_points = resnet_v2.resnet_v2(images, blocks, is_training=is_training, include_root_block=True)
@@ -49,8 +49,8 @@ def feature_extractor(images, is_training):
         net = conv3d_block(net, 256, 3, 1, name='conv1', is_training=is_training)
         net = conv3d_block(net, 256, 3, 2, name='conv2', is_training=is_training)
         net = conv3d_block(net, 256, 3, 4, name='conv3', is_training=is_training)
-        net = conv3d_block(net, 256, 3, 8, name='conv4', is_training=is_training)
-        net = conv3d_block(net, 256, 3, 16, name='conv5', is_training=is_training)
+        #net = conv3d_block(net, 256, 3, 8, name='conv4', is_training=is_training)
+        #net = conv3d_block(net, 256, 3, 16, name='conv5', is_training=is_training)
         embeddings = tf.layers.conv3d(net, 64, [1, 1, 1], padding='SAME', name='conv6')
     return embeddings
 
@@ -63,7 +63,6 @@ def colorizer(ref_embed, ref_label, tag_embed, tag_label=None, temperature=1, wi
         org_shape = tf.shape(tag_embed)[:-1]
         cat = tf.shape(ref_label)[-1]
 
-        # TODO: inner product can be more efficient
         if window is None:
             ref_embed = tf.reshape(ref_embed, [-1,1,dim]) # [ref*H*W, 1, dim]
             tag_embed = tf.reshape(tag_embed, [1,-1,dim]) # [1, H*W, dim]
@@ -75,8 +74,9 @@ def colorizer(ref_embed, ref_label, tag_embed, tag_label=None, temperature=1, wi
             prediction = tf.reshape(prediction, tf.concat([org_shape, [-1]], axis=0))
 
         else:
+            # TODO: check this part is right
             ref_embed = make_window(ref_embed, window) # [ref,win*win,H,W,dim]
-            tag_embed = tf.reshape(tag_embed,tf.concat([[1,1], org_shape[1:], [-1]],axis=0))
+            tag_embed = tf.reshape(tag_embed,tf.concat([[1,1], org_shape[1:], [-1]],axis=0)) #[1,1,H,W,dim]
             inner_product = tf.reshape(tf.reduce_sum(ref_embed*tag_embed, -1), tf.concat([[-1],org_shape[1:]],axis=0)) # [ref*win*win,H,W] 
             similarity_matrix = tf.reshape(tf.nn.softmax(inner_product/temperature, 0), tf.concat([[-1,window*window],org_shape[1:]],axis=0)) # [ref,win*win,H,W]
 
@@ -97,9 +97,9 @@ def colorizer(ref_embed, ref_label, tag_embed, tag_label=None, temperature=1, wi
         return results
 
 def make_window(feature, window):
-    # take a 4D tensor [T,H,W,C], perform sliding window and return [T,win,win,H,W,C]
+    # take a 4D tensor [T,H,W,C], perform sliding window and return [T,win*win,H,W,C]
     shape = feature.get_shape().as_list()
-    feature_windows = tf.extract_image_patches(feature, ksizes=[1,window,window,1], strides=[1,1,1,1], rates=[1,1,1,1], padding='SAME')
-    feature_windows = tf.reshape(feature_windows, shape[:-1]+[-1,shape[-1]])
+    feature_windows = tf.extract_image_patches(feature, ksizes=[1,window,window,1], strides=[1,1,1,1], rates=[1,1,1,1], padding='SAME') # [T,H,W,win*win*C]
+    feature_windows = tf.reshape(feature_windows, shape[:-1]+[-1,shape[-1]]) #[T,H,W,win*win, C]
     feature_windows = tf.transpose(feature_windows, perm=[0,3,1,2,4])
     return feature_windows
