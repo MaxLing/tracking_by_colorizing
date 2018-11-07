@@ -1,4 +1,4 @@
-import os, cv2, pickle
+import os, cv2, pickle, argparse
 import tensorflow as tf
 import numpy as np
 from sklearn.decomposition import PCA
@@ -6,7 +6,31 @@ from clustering import Clustering
 from dataset import Dataset
 from nets import feature_extractor, colorizer
 
-# Parameters, TODO: use argparse
+# Parameters, use smaller ref_frame and batch_size if GPU OOM
+parser = argparse.ArgumentParser(description='Train colorization model')
+parser.add_argument('--ref_frame', type=int, default=3,
+                    help='number of reference frame to track from')
+parser.add_argument('--clusters',type=int, default=10,
+                    help='number of clusters for color space K-means')
+parser.add_argument('--learn_rate', '-lr', type=float, default=1e-4,
+                    help='learning rate')
+parser.add_argument('--batch_size', type=int, default=4,
+                    help='batch size')
+parser.add_argument('--max_iter', type=int, default=1000,
+                    help='max iteration')
+parser.add_argument('--image_size', type=str, default='185,360',
+                    help='downsized image size of input videos, seperated by comma')
+parser.add_argument('--embed_size', type=str, default='47,90',
+                    help='downsampled embedding size of input images, seperated by comma')
+parser.add_argument('--embed_dim', type=int, default=64,
+                    help='dimension of embeddings')
+parser.add_argument('--data_dir', type=str, default=os.path.join(os.path.dirname(__file__), 'data'),
+                    help='directory of training data')
+parser.add_argument('--window', type=int, default=5,
+                    help='neighboring window for similairity computation')
+args = parser.parse_args()
+
+'''
 ref_frame = 3
 color_clusters = 10
 lr = 1e-4
@@ -16,12 +40,26 @@ max_iter = 1000
 #image_size = [92, 180] # [480, 720]-crop->[370,720] downsize/4
 #embed_size = [12, 23]  # image_size/8
 image_size = [185, 360] # downsize/2
-embed_size = [24,45]
-#embed_size = [47,90] # image_size/4
+#embed_size = [24,45]
+embed_size = [47,90] # image_size/4
 embed_dim = 64
+window = 5
 
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
-model_dir = os.path.join(os.path.dirname(__file__), 'model')
+'''
+ref_frame = args.ref_frame
+color_clusters = args.clusters
+lr = args.learn_rate
+batch_size = args.batch_size
+max_iter = args.max_iter
+image_size = [int(x) for x in args.image_size.split(',')]
+embed_size = [int(x) for x in args.embed_size.split(',')]
+embed_dim = args.embed_dim
+window = args.window
+data_dir = args.data_dir
+
+model_spec = 'model_'+ 'size' + str(image_size[0]) +'x' + str(image_size[1]) + '|' + str(embed_size[0])+'x'+str(embed_size[1]) +'_lr' + str(args.learn_rate) + '_cluster' + str(args.clusters) + '_win' + str(args.window) + '_ref' + str(args.ref_frame) + '_batch' + str(args.batch_size)
+model_dir = os.path.join(os.path.dirname(__file__), model_spec)
 if not os.path.exists(model_dir):
     os.mkdir(model_dir)
 
@@ -61,7 +99,7 @@ with tf.variable_scope("colorization", reuse=tf.AUTO_REUSE):
         label = labels[i]
 
         results = colorizer(embedding[:ref_frame], tf.one_hot(label[:ref_frame], color_clusters),
-                            embedding[ref_frame:], label[ref_frame:])
+                            embedding[ref_frame:], label[ref_frame:], window=window)
         mean_losses = tf.reduce_mean(tf.reduce_mean(results['losses'], 2), 1)
         pred = results['predictions']
 
