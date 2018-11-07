@@ -58,7 +58,7 @@ embed_dim = args.embed_dim
 window = args.window
 data_dir = args.data_dir
 
-model_spec = 'model_'+ 'size' + str(image_size[0]) +'x' + str(image_size[1]) + '|' + str(embed_size[0])+'x'+str(embed_size[1]) +'_lr' + str(args.learn_rate) + '_cluster' + str(args.clusters) + '_win' + str(args.window) + '_ref' + str(args.ref_frame) + '_batch' + str(args.batch_size)
+model_spec = 'model_'+ 'insize' + str(image_size[0]) +'x' + str(image_size[1]) + '_emsize' + str(embed_size[0])+'x'+str(embed_size[1]) +'_lr' + str(args.learn_rate) + '_cluster' + str(args.clusters) + '_win' + str(args.window) + '_ref' + str(args.ref_frame) + '_batch' + str(args.batch_size)
 model_dir = os.path.join(os.path.dirname(__file__), model_spec)
 if not os.path.exists(model_dir):
     os.mkdir(model_dir)

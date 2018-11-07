@@ -1,30 +1,60 @@
-import os, cv2, pickle
+import os, cv2, pickle, argparse
 import tensorflow as tf
 import numpy as np
 from sklearn.decomposition import PCA
 from nets import colorizer
 
 # Parameters
+parser = argparse.ArgumentParser(description='Inference colorization model') 
+parser.add_argument('--label_types', type=int, default=6,
+                    help='number of label types')
+parser.add_argument('--temperature', '-t', type=float, default=0.5,
+                    help='softmax temperature [0,1]')
+parser.add_argument('--alpha', '-a', type=float, default=0.4,
+                    help='alpha for segmentation mask')
+parser.add_argument('--data_dir', type=str, default=os.path.join(os.path.dirname(__file__), 'data'),
+                    help='directory of inference data')
+parser.add_argument('--model_dir', type=str,
+                    help='directory of inference model, dont include / at end')
+args = parser.parse_args()
+
+'''
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
 model_dir = os.path.join(os.path.dirname(__file__), 'model')
 #image_size = (92, 180) # crop downsize/4
 #embed_size = (12, 23)  # image_size/8
 image_size = (185,360) # downsize/2
-embed_size = (24,45)
-#embed_size = (47,90)
+#embed_size = (24,45)
+embed_size = (47,90)
 ref_frame = 3
 color_clusters = 10
 label_types = 6
 temperature = 0.5
 alpha = 0.4
+'''
+
+def read_model(model_dir):
+    name = model_dir.split('/')[-1]
+    specs = name.split('_')
+    image_size = tuple([int(x) for x in specs[1][6:].split('x')])
+    embed_size = tuple([int(x) for x in specs[2][6:].split('x')])
+    clusters = int(specs[4][7:])
+    window = int(specs[5][3:])
+    ref = int(specs[6][3:])
+    return image_size, embed_size, clusters, window, ref
+
+label_types = args.label_types
+temperature = args.temperature
+alpha = args.alpha
+data_dir = args.data_dir
+model_dir = args.model_dir
+image_size, embed_size, color_clusters, window, ref_frame = read_model(model_dir)
 
 output_dir = os.path.join(data_dir, 'output')
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 
 # make colors for masking
-#colors = (np.arange(label_types)+1).reshape((-1,1))*(255./label_types)
-#colors = np.broadcast_to(colors, (label_types, 3))
 colors = np.array([[0,0,0], [255,0,0],[0,255,0],[255,255,0],[255,0,255],[0,255,255],[255,255,255]])
 
 def image_preprocess(frames):
@@ -106,9 +136,9 @@ with tf.Graph().as_default() as graph:
     labels_color = tf.reshape(lab_to_labels(tf.image.resize_images(tf.reshape(images, (-1,)+image_size+(3,)),embed_size), cluster_centers), (ref_frame+1,)+embed_size)
 
     # track segmentation and color
-    results_seg = colorizer(embeddings[0,:ref_frame], labels, embeddings[0, ref_frame:], temperature=temperature, window=5)
+    results_seg = colorizer(embeddings[0,:ref_frame], labels, embeddings[0, ref_frame:], temperature=temperature, window=window)
     predictions_seg = results_seg['predictions']
-    results_color = colorizer(embeddings[0,:ref_frame], tf.one_hot(labels_color[:ref_frame], color_clusters), embeddings[0, ref_frame:], temperature=temperature, window=5)
+    results_color = colorizer(embeddings[0,:ref_frame], tf.one_hot(labels_color[:ref_frame], color_clusters), embeddings[0, ref_frame:], temperature=temperature, window=window)
     predictions_color = tf.concat([(images[0,ref_frame:,:,:,0:1]+1)/2, tf.image.resize_images(labels_to_lab(results_color['predictions'], cluster_centers)[...,1:], image_size)], axis=-1)
 
 '''session'''
