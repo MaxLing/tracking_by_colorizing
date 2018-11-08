@@ -10,13 +10,13 @@ from nets import feature_extractor, colorizer
 parser = argparse.ArgumentParser(description='Train colorization model')
 parser.add_argument('--ref_frame', type=int, default=3,
                     help='number of reference frame to track from')
-parser.add_argument('--clusters',type=int, default=10,
+parser.add_argument('--clusters',type=int, default=16,
                     help='number of clusters for color space K-means')
 parser.add_argument('--learn_rate', '-lr', type=float, default=1e-4,
                     help='learning rate')
 parser.add_argument('--batch_size', type=int, default=4,
                     help='batch size')
-parser.add_argument('--max_iter', type=int, default=1000,
+parser.add_argument('--max_iter', type=int, default=100000,
                     help='max iteration')
 parser.add_argument('--image_size', type=str, default='185,360',
                     help='downsized image size of input videos, seperated by comma')
@@ -26,7 +26,7 @@ parser.add_argument('--embed_dim', type=int, default=64,
                     help='dimension of embeddings')
 parser.add_argument('--data_dir', type=str, default=os.path.join(os.path.dirname(__file__), 'data'),
                     help='directory of training data')
-parser.add_argument('--window', type=int, default=5,
+parser.add_argument('--window', type=int, default=4,
                     help='neighboring window for similairity computation')
 args = parser.parse_args()
 
@@ -72,6 +72,7 @@ with tf.variable_scope("data_loader", reuse=tf.AUTO_REUSE):
 
 '''build graph'''
 with tf.variable_scope("input", reuse=tf.AUTO_REUSE):
+    global_step = tf.Variable(0, trainable=False, name='global_step')
     images = tf.placeholder(tf.float32, [None, ref_frame+1] + image_size + [3], name='images')
     is_training = tf.placeholder(tf.bool, name='is_training')
 
@@ -113,10 +114,11 @@ with tf.variable_scope("colorization", reuse=tf.AUTO_REUSE):
 
 '''training'''
 with tf.variable_scope("training", reuse=tf.AUTO_REUSE):
+    global_step = tf.get_default_graph().get_tensor_by_name('input/global_step:0')
     loss = tf.reduce_mean(losses)
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
-        train_op = tf.train.AdamOptimizer(learning_rate = lr).minimize(loss)
+        train_op = tf.train.AdamOptimizer(learning_rate = lr).minimize(loss, global_step=global_step)
 
 '''summary'''
 with tf.variable_scope("summary", reuse=tf.AUTO_REUSE):
@@ -147,19 +149,20 @@ with tf.Session() as sess:
 
     pca = PCA(n_components=3) # for embedding visualization
 
-    for i in range(max_iter):
-        print ('iteration ' + str(i))
+    for j in range(max_iter):
+        i = tf.train.global_step(sess, global_step)
+        print ('iteration: ' + str(j) + ' global step: ' + str(i))
         # load image batch
         images_batch = sess.run(image_batch)
 
         if not KMeans_initialized:
             # init kmeans
             sess.run(KMeans.init_op, {images: images_batch})
-        if i % 10 == 0:
+        if i % 100 == 0:
             # update kmeans using minibatch
             sess.run(KMeans.train_op, {images: images_batch})
         
-        if i % 100 != 0:
+        if i % 500 != 0:
             # normal training
             _, summary = sess.run([train_op, loss_summary], {images: images_batch, is_training: True})
             writer.add_summary(summary, i)
@@ -192,7 +195,7 @@ with tf.Session() as sess:
                                                ph_tag_embed: tag_embed})
             writer.add_summary(summary, i)
 
-        if (i+1) % 200 == 0:
+        if (i+1) % 1000 == 0:
             # save the model
             saver.save(sess, os.path.join(model_dir, 'model.ckpt'), global_step=i, write_meta_graph=False)
             # save pca (overwrite) for embedding visualization
