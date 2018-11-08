@@ -28,6 +28,8 @@ parser.add_argument('--data_dir', type=str, default=os.path.join(os.path.dirname
                     help='directory of training data')
 parser.add_argument('--window', type=int, default=4,
                     help='neighboring window for similairity computation')
+parser.add_argument('--data_type', type=str, choices=['surgical','kinetics'], 
+                    help='dataset type')
 args = parser.parse_args()
 
 '''
@@ -57,6 +59,7 @@ embed_size = [int(x) for x in args.embed_size.split(',')]
 embed_dim = args.embed_dim
 window = args.window
 data_dir = args.data_dir
+data_type = args.data_type
 
 model_spec = 'model_'+ 'insize' + str(image_size[0]) +'x' + str(image_size[1]) + '_emsize' + str(embed_size[0])+'x'+str(embed_size[1]) +'_lr' + str(args.learn_rate) + '_cluster' + str(args.clusters) + '_win' + str(args.window) + '_ref' + str(args.ref_frame) + '_batch' + str(args.batch_size)
 model_dir = os.path.join(os.path.dirname(__file__), model_spec)
@@ -65,7 +68,7 @@ if not os.path.exists(model_dir):
 
 '''load data'''
 with tf.variable_scope("data_loader", reuse=tf.AUTO_REUSE):
-    data = Dataset(data_dir, batch_size, ref_frame, image_size)
+    data = Dataset(data_dir, batch_size, ref_frame, image_size, data_type)
     data_loader = data.load_data_batch().repeat().batch(batch_size) # repeat(epoch) or indefinitely
     image_batch = data_loader.make_one_shot_iterator().get_next()
     image_batch = tf.concat([image_batch[...,0:1]*2-1, image_batch[...,1:]], axis=-1) # scale intensity to [-1,1]

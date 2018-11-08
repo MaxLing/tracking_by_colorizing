@@ -5,14 +5,15 @@ import matplotlib._png as png
 from itertools import cycle
 
 class Dataset:
-    def __init__(self, dir, batch_size, ref_frame, image_size):
+    def __init__(self, dir, batch_size, ref_frame, image_size, type):
         self.dir = dir
         self.vid_dirs = []
         self.batch_size = batch_size
         self.ref_frame = ref_frame
         self.image_size = tuple(image_size)
         self.frames = np.zeros([self.ref_frame + 1, self.image_size[0], self.image_size[1], 3])
-    
+        self.type = type
+ 
     def split_video(self):
         vids = [vid for vid in os.listdir(self.dir+'/video')]
         for vid in vids:
@@ -60,8 +61,9 @@ class Dataset:
                 if not ret:
                     break
                 else:
-                    # TODO: crop black bound of frame is sipecific to video data!!!
-                    # frame = frame[55:425,...]
+                    # crop black bound of frame is sipecific to video data!!!
+                    if self.type=='surgical':
+                        frame = frame[55:425,...]
                     if count < self.ref_frame+1:
                         self.frames[count] = cv2.resize(cv2.cvtColor(np.float32(frame/255.), cv2.COLOR_BGR2LAB), self.image_size[::-1])
                         if count == self.ref_frame:
@@ -76,13 +78,13 @@ class Dataset:
 
 if __name__ == '__main__': 
     parser = argparse.ArgumentParser(description='Dataset preprocess')
-    parser.add_argument('--dir', '-d', type=str, default='./data',
+    parser.add_argument('--dir', '-d', type=str, default='./kinetics',
                         help='dataset directory')
-    parser.add_argument('--type', '-t', type=str, default='surgical', 
+    parser.add_argument('--type', '-t', type=str, default='kinetics', 
                         choices=['surgical','kinetics'], help='dataset type')
     args = parser.parse_args()
     
-    data = Dataset(dir=args.dir, batch_size=4, ref_frame=3, image_size=[185, 360])
+    data = Dataset(dir=args.dir, batch_size=4, ref_frame=3, image_size=[185, 360], type=args.type)
     data.split_video()
-    #if args.type == 'surgical':
-    #    data.crop_mask()
+    if args.type == 'surgical':
+        data.crop_mask()
