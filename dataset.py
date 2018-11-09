@@ -43,6 +43,7 @@ class Dataset:
         if not self.vid_dirs:
             with open(self.dir + '/video_dirs.txt', 'r') as f:
                 self.vid_dirs = f.read().splitlines()
+                np.random.shuffle(self.vid_dirs)
         
         # tf dataset from generator
         types = tf.float32

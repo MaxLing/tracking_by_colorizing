@@ -135,7 +135,10 @@ with tf.variable_scope("summary", reuse=tf.AUTO_REUSE):
     writer = tf.summary.FileWriter(model_dir)
 
 '''session'''
-with tf.Session() as sess:
+# use GPU memory based on runtime allocation
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+with tf.Session(config=config) as sess:
     sess.run(tf.global_variables_initializer())
     writer.add_graph(sess.graph)
     saver = tf.train.Saver()
