@@ -135,9 +135,10 @@ with tf.variable_scope("summary", reuse=tf.AUTO_REUSE):
     writer = tf.summary.FileWriter(model_dir)
 
 '''session'''
-# use GPU memory based on runtime allocation
+# use GPU memory based on runtime allocation, use gpu from last one
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
+config.gpu_options.visible_device_list = "3,2,1,0"
 with tf.Session(config=config) as sess:
     sess.run(tf.global_variables_initializer())
     writer.add_graph(sess.graph)
