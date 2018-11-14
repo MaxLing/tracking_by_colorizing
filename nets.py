@@ -88,12 +88,7 @@ def colorizer(ref_embed, ref_label, tag_embed, tag_label=None, temperature=1, wi
                    'temperature': temperature,
                    'predictions': prediction}
         if tag_label is not None:
-            tag_label = tf.convert_to_tensor(tag_label)
-            if tag_label.dtype in [tf.float16, tf.float32, tf.float64]:
-                fn = tf.nn.softmax_cross_entropy_with_logits
-            else:
-                fn = tf.nn.sparse_softmax_cross_entropy_with_logits
-            results['losses'] = fn(logits=prediction, labels=tag_label)
+            results['losses'] = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction, labels=tag_label)
         return results
 
 def make_window(feature, window):
