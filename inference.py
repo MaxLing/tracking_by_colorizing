@@ -141,7 +141,7 @@ with tf.Graph().as_default() as graph:
     predictions_color = tf.concat([(images[0,ref_frame:,:,:,0:1]+1)/2, tf.image.resize_images(labels_to_lab(results_color['predictions'], cluster_centers)[...,1:], image_size)], axis=-1)
 
 '''session'''
-# use GPU memory based on runtime allocation, use last gpu
+# use GPU memory based on runtime allocation and visible device
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 config.gpu_options.visible_device_list = "3"
@@ -209,7 +209,7 @@ with tf.Session(graph=graph,config=config) as sess:
                # update labels
                masks[:-1] = masks[1:]
                mask_name = 'Frame%04d_ordered.png' % (count+1)
-               if mask_name in mask_list:
+               if mask_name in mask_list and count%30==0:
                    # use ground truth if provided
                    masks[-1] = label_preprocess(cv2.resize(cv2.imread(mask_dir + '/' + mask_name, cv2.IMREAD_GRAYSCALE), embed_size[::-1]))
                else:
