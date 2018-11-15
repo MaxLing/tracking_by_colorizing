@@ -16,7 +16,7 @@ parser.add_argument('--data_dir', type=str,
                     help='directory of inference data')
 parser.add_argument('--model_dir', type=str,
                     help='directory of inference model, dont include / at end')
-parser.add_argument('--data_type', type=str, choices=['surgical','kinetics'], default='surgical', 
+parser.add_argument('--data_type', type=str, choices=['surgical','davis'],
                     help='dataset type')
 args = parser.parse_args()
 
@@ -144,7 +144,7 @@ with tf.Graph().as_default() as graph:
 # use GPU memory based on runtime allocation and visible device
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-config.gpu_options.visible_device_list = "3"
+config.gpu_options.visible_device_list = "0"
 with tf.Session(graph=graph,config=config) as sess:
     saver.restore(sess, tf.train.latest_checkpoint(model_dir))
 
@@ -184,6 +184,13 @@ with tf.Session(graph=graph,config=config) as sess:
                if count != ref_frame:
                    mask_name = 'Frame%04d_ordered.png' % (count+1)
                    masks[count] = label_preprocess(cv2.resize(cv2.imread(mask_dir + '/' + mask_name, cv2.IMREAD_GRAYSCALE), embed_size[::-1]))
+
+               if data_type=='davis': # only 1st frame mask
+                   for i in range(1, ref_frame):
+                       frames[i] = frames[0]
+                       masks[i] = masks[0]
+                   frames[ref_frame] = frames[0]
+                   count = ref_frame
            else:
                print('iteration ' + str(count))
                pred, pred_color, pred_embed = sess.run([predictions_seg, predictions_color, embeddings], 
@@ -194,8 +201,8 @@ with tf.Session(graph=graph,config=config) as sess:
  
                feat_flat = pred_embed[0,-1].reshape((-1, pred_embed.shape[-1]))
                feat_flat = pca.transform(feat_flat)
-               feat_flat /= np.abs(feat_flat).max()
-               feat_flat = (feat_flat+1)/2
+               feat_flat -= np.min(feat_flat)
+               feat_flat /= np.max(feat_flat)
   
                # write to video
                video.write(apply_mask(frames[-1], pred_mask))
