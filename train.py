@@ -98,6 +98,11 @@ with tf.variable_scope("colorization", reuse=tf.AUTO_REUSE):
     predictions = tf.zeros([0,1]+embed_size+[color_clusters])
     predictions_lab = tf.zeros([0,1]+embed_size+[3])
 
+    #pq = tf.reduce_mean(tf.reduce_mean(tf.one_hot(labels, color_clusters), 2), 2)
+    #q = tf.reduce_mean(pq[:,:ref_frame,:], 1, keepdims=True)
+    #p = pq[:,ref_frame:,:]
+    #loss_weights = tf.reduce_sum((p**0.5)*(q**0.5), axis=-1, name = 'loss_weights')
+
     for i in range(batch_size):
         embedding = embeddings[i]
         label = labels[i]
@@ -119,6 +124,7 @@ with tf.variable_scope("colorization", reuse=tf.AUTO_REUSE):
 with tf.variable_scope("training", reuse=tf.AUTO_REUSE):
     global_step = tf.get_default_graph().get_tensor_by_name('input/global_step:0')
     loss = tf.reduce_mean(losses)
+    #loss = tf.reduce_mean(tf.reduce_mean(tf.reduce_mean(losses, -1), -1) * loss_weights)
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
         train_op = tf.train.AdamOptimizer(learning_rate = lr).minimize(loss, global_step=global_step)
@@ -182,6 +188,8 @@ with tf.Session(config=config) as sess:
             tag_img = np.zeros([batch_size] + image_size + [3])
             tag_embed = np.zeros([batch_size] + embed_size + [3])
             pred_img = np.zeros([batch_size] + image_size + [3])
+
+            pca.fit(feats[:,ref_frame].reshape(-1, embed_dim))
             for j in range(batch_size):
                 img = images_batch[j, ref_frame]
                 img[...,0] = (img[...,0]+1)/2 # scale back to [0,1]
@@ -192,10 +200,9 @@ with tf.Session(config=config) as sess:
                 pred_img[j] = cv2.cvtColor(pred, cv2.COLOR_LAB2RGB)
 
                 feat_flat = feats[j, ref_frame].reshape(-1, embed_dim)
-                pca.fit(feat_flat)
                 feat_flat = pca.transform(feat_flat)
-                feat_flat /= np.abs(feat_flat).max() # [-1,1]
-                feat_flat = (feat_flat + 1) / 2
+                feat_flat -= np.min(feat_flat)
+                feat_flat /= np.max(feat_flat)
                 tag_embed[j] = feat_flat.reshape(embed_size + [3])
             summary = sess.run(image_summary, {ph_tag_img: tag_img,
                                                ph_pred_img: pred_img,
