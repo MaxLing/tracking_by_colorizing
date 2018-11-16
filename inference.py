@@ -148,89 +148,90 @@ config.gpu_options.visible_device_list = "0"
 with tf.Session(graph=graph,config=config) as sess:
     saver.restore(sess, tf.train.latest_checkpoint(model_dir))
 
-    # TODO: now only support 1 video
-    video_dir = video_dirs[0]
-    mask_dir = mask_dirs[0]
-    mask_list = set(os.listdir(mask_dir))
-
     frames = np.zeros([ref_frame+1, image_size[0], image_size[1], 3])
     masks = np.zeros([ref_frame, embed_size[0], embed_size[1], label_types])
     # read pca for embedding visualization
     with open(os.path.join(model_dir, 'pca.pkl'), 'rb') as f:
     	pca = pickle.load(f)    
 
-    # init video writer
-    outfile = output_dir + '/' + video_dir.split('/')[-1]
-    outfile_embed = output_dir + '/embed_' + video_dir.split('/')[-1]
-    outfile_color = output_dir + '/color_' + video_dir.split('/')[-1]
-    fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')
-    video = cv2.VideoWriter(filename=outfile, fourcc=fourcc, fps=30.0, frameSize=image_size[::-1])
-    video_embed = cv2.VideoWriter(filename=outfile_embed, fourcc=fourcc, fps=30.0, frameSize=embed_size[::-1])
-    video_color = cv2.VideoWriter(filename=outfile_color, fourcc=fourcc, fps=30.0, frameSize=image_size[::-1])
+    for video_id in range(len(video_dirs)):
+        video_dir = video_dirs[video_id]
+        mask_dir = mask_dirs[video_id]
+        mask_list = set(os.listdir(mask_dir))
+        print('inference on video: ' + video_dir)
 
-    # init video reader
-    capture = cv2.VideoCapture(video_dir)
-    capture.set(5, 30)
-    count = 0
-    while (capture.isOpened()):
-       ret, frame = capture.read()
-       if not ret:
-           break
-       else:
-           if data_type=='surgical':
-               frame = frame[55:425,...]
-           if count < ref_frame+1:
-               frames[count] = cv2.resize(frame, image_size[::-1])
-               if count != ref_frame:
-                   mask_name = 'Frame%04d_ordered.png' % (count+1)
-                   masks[count] = label_preprocess(cv2.resize(cv2.imread(mask_dir + '/' + mask_name, cv2.IMREAD_GRAYSCALE), embed_size[::-1]))
+        # init video writer
+        outfile = output_dir + '/' + video_dir.split('/')[-1]
+        outfile_embed = output_dir + '/embed_' + video_dir.split('/')[-1]
+        outfile_color = output_dir + '/color_' + video_dir.split('/')[-1]
+        fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')
+        video = cv2.VideoWriter(filename=outfile, fourcc=fourcc, fps=30.0, frameSize=image_size[::-1])
+        video_embed = cv2.VideoWriter(filename=outfile_embed, fourcc=fourcc, fps=30.0, frameSize=embed_size[::-1])
+        video_color = cv2.VideoWriter(filename=outfile_color, fourcc=fourcc, fps=30.0, frameSize=image_size[::-1])
 
-               if data_type=='davis': # only 1st frame mask
-                   for i in range(1, ref_frame):
-                       frames[i] = frames[0]
-                       masks[i] = masks[0]
-                   frames[ref_frame] = frames[0]
-                   count = ref_frame
-           else:
-               print('iteration ' + str(count))
-               pred, pred_color, pred_embed = sess.run([predictions_seg, predictions_color, embeddings], 
+        # init video reader
+        capture = cv2.VideoCapture(video_dir)
+        capture.set(5, 30)
+        count = 0
+        while (capture.isOpened()):
+            ret, frame = capture.read()
+            if not ret:
+                break
+            else:
+                if data_type=='surgical':
+                    frame = frame[55:425,...]
+                if count < ref_frame+1:
+                    frames[count] = cv2.resize(frame, image_size[::-1])
+                    if count != ref_frame:
+                        mask_name = 'Frame%04d_ordered.png' % (count+1)
+                        masks[count] = label_preprocess(cv2.resize(cv2.imread(mask_dir + '/' + mask_name, cv2.IMREAD_GRAYSCALE), embed_size[::-1]))
+
+                    if data_type=='davis': # only 1st frame mask
+                        for i in range(1, ref_frame):
+                            frames[i] = frames[0]
+                            masks[i] = masks[0]
+                        frames[ref_frame] = frames[0]
+                        count = ref_frame
+                else:
+                    print('iteration ' + str(count))
+                    pred, pred_color, pred_embed = sess.run([predictions_seg, predictions_color, embeddings], 
                                                 {images: [image_preprocess(frames)],
                                                  labels: masks,
                                                  is_training: False})
-               pred_mask = cv2.resize(pred[0], image_size[::-1])
+                    pred_mask = cv2.resize(pred[0], image_size[::-1])
  
-               feat_flat = pred_embed[0,-1].reshape((-1, pred_embed.shape[-1]))
-               feat_flat = pca.transform(feat_flat)
-               feat_flat -= np.min(feat_flat)
-               feat_flat /= np.max(feat_flat)
+                    feat_flat = pred_embed[0,-1].reshape((-1, pred_embed.shape[-1]))
+                    feat_flat = pca.transform(feat_flat)
+                    feat_flat -= np.min(feat_flat)
+                    feat_flat /= np.max(feat_flat)
   
-               # write to video
-               video.write(apply_mask(frames[-1], pred_mask))
-               video_embed.write(np.uint8(feat_flat.reshape(embed_size+(3,))*255.))
-               video_color.write(np.uint8(cv2.cvtColor(pred_color[0], cv2.COLOR_LAB2BGR)*255.))
+                    # write to video
+                    video.write(apply_mask(frames[-1], pred_mask))
+                    video_embed.write(np.uint8(feat_flat.reshape(embed_size+(3,))*255.))
+                    video_color.write(np.uint8(cv2.cvtColor(pred_color[0], cv2.COLOR_LAB2BGR)*255.))
 
-               # update images
-               frames[:-1] = frames[1:]
-               frames[-1] = cv2.resize(frame, image_size[::-1])
+                    # update images
+                    frames[:-1] = frames[1:]
+                    frames[-1] = cv2.resize(frame, image_size[::-1])
 
-               # update labels
-               masks[:-1] = masks[1:]
-               mask_name = 'Frame%04d_ordered.png' % (count+1)
-               if mask_name in mask_list and count%30==0:
-                   # use ground truth if provided
-                   masks[-1] = label_preprocess(cv2.resize(cv2.imread(mask_dir + '/' + mask_name, cv2.IMREAD_GRAYSCALE), embed_size[::-1]))
-               else:
-                   # use prediction as label
-                   masks[-1] = pred[0]
+                    # update labels
+                    masks[:-1] = masks[1:]
+                    mask_name = 'Frame%04d_ordered.png' % (count+1)
+                    if mask_name in mask_list and count%30==0:
+                        # use ground truth if provided
+                        masks[-1] = label_preprocess(cv2.resize(cv2.imread(mask_dir + '/' + mask_name, cv2.IMREAD_GRAYSCALE), embed_size[::-1]))
+                    else:
+                        # use prediction as label
+                        masks[-1] = pred[0]
 
-           # update counting
-           count += 1
+                # update counting
+                count += 1
 
-    # end all capture
-    capture.release()
-    video.release()
-    video_embed.release()
-    video_color.release()
+        # end all capture
+        capture.release()
+        video.release()
+        video_embed.release()
+        video_color.release()
 
 
 
