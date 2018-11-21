@@ -20,21 +20,6 @@ parser.add_argument('--data_type', type=str, choices=['surgical','davis'],
                     help='dataset type')
 args = parser.parse_args()
 
-'''
-data_dir = os.path.join(os.path.dirname(__file__), 'data')
-model_dir = os.path.join(os.path.dirname(__file__), 'model')
-#image_size = (92, 180) # crop downsize/4
-#embed_size = (12, 23)  # image_size/8
-image_size = (185,360) # downsize/2
-#embed_size = (24,45)
-embed_size = (47,90)
-ref_frame = 3
-color_clusters = 10
-label_types = 6
-temperature = 0.5
-alpha = 0.4
-'''
-
 def read_model(model_dir):
     name = model_dir.split('/')[-1]
     specs = name.split('_')
@@ -178,8 +163,6 @@ with tf.Session(graph=graph,config=config) as sess:
             if not ret:
                 break
             else:
-                if data_type=='surgical':
-                    frame = frame[55:425,...]
                 if count < ref_frame+1:
                     frames[count] = cv2.resize(frame, image_size[::-1])
                     if count != ref_frame:

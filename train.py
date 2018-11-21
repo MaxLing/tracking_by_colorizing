@@ -18,9 +18,9 @@ parser.add_argument('--batch_size', type=int, default=4,
                     help='batch size')
 parser.add_argument('--max_iter', type=int, default=100000,
                     help='max iteration')
-parser.add_argument('--image_size', type=str, default='185,360',
+parser.add_argument('--image_size', type=str, default='256,256',
                     help='downsized image size of input videos, seperated by comma')
-parser.add_argument('--embed_size', type=str, default='47,90',
+parser.add_argument('--embed_size', type=str, default='64,64',
                     help='downsampled embedding size of input images, seperated by comma')
 parser.add_argument('--embed_dim', type=int, default=64,
                     help='dimension of embeddings')
@@ -28,27 +28,8 @@ parser.add_argument('--data_dir', type=str, default=os.path.join(os.path.dirname
                     help='directory of training data')
 parser.add_argument('--window', type=int, default=4,
                     help='neighboring window for similairity computation')
-parser.add_argument('--data_type', type=str, choices=['surgical','kinetics'], 
-                    help='dataset type')
 args = parser.parse_args()
 
-'''
-ref_frame = 3
-color_clusters = 10
-lr = 1e-4
-batch_size = 4
-max_iter = 1000
-
-#image_size = [92, 180] # [480, 720]-crop->[370,720] downsize/4
-#embed_size = [12, 23]  # image_size/8
-image_size = [185, 360] # downsize/2
-#embed_size = [24,45]
-embed_size = [47,90] # image_size/4
-embed_dim = 64
-window = 5
-
-data_dir = os.path.join(os.path.dirname(__file__), 'data')
-'''
 ref_frame = args.ref_frame
 color_clusters = args.clusters
 lr = args.learn_rate
@@ -57,9 +38,8 @@ max_iter = args.max_iter
 image_size = [int(x) for x in args.image_size.split(',')]
 embed_size = [int(x) for x in args.embed_size.split(',')]
 embed_dim = args.embed_dim
-window = args.window
+window = args.window if args.window != 0 else None
 data_dir = args.data_dir
-data_type = args.data_type
 
 model_spec = 'model_'+ 'insize' + str(image_size[0]) +'x' + str(image_size[1]) + '_emsize' + str(embed_size[0])+'x'+str(embed_size[1]) +'_lr' + str(args.learn_rate) + '_cluster' + str(args.clusters) + '_win' + str(args.window) + '_ref' + str(args.ref_frame) + '_batch' + str(args.batch_size)
 model_dir = os.path.join(os.path.dirname(__file__), model_spec)
@@ -68,7 +48,7 @@ if not os.path.exists(model_dir):
 
 '''load data'''
 with tf.variable_scope("data_loader", reuse=tf.AUTO_REUSE):
-    data = Dataset(data_dir, batch_size, ref_frame, image_size, data_type)
+    data = Dataset(data_dir, batch_size, ref_frame, image_size)
     data_loader = data.load_data_batch().repeat().batch(batch_size) # repeat(epoch) or indefinitely
     image_batch = data_loader.make_one_shot_iterator().get_next()
     image_batch = tf.concat([image_batch[...,0:1]*2-1, image_batch[...,1:]], axis=-1) # scale intensity to [-1,1]
@@ -144,7 +124,7 @@ with tf.variable_scope("summary", reuse=tf.AUTO_REUSE):
 # use GPU memory based on runtime allocation and visible device
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-config.gpu_options.visible_device_list = "3" # TODO: currently no support on multiple GPU
+config.gpu_options.visible_device_list = "0" # TODO: currently no support on multiple GPU
 with tf.Session(config=config) as sess:
     sess.run(tf.global_variables_initializer())
     writer.add_graph(sess.graph)
