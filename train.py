@@ -28,7 +28,7 @@ parser.add_argument('--data_dir', type=str, default=os.path.join(os.path.dirname
                     help='directory of training data')
 parser.add_argument('--window', type=int, default=4,
                     help='neighboring window for similairity computation')
-parser.add_argument('--use_3d', type=int, default=1, choices=[0,1].
+parser.add_argument('--use_c3d', type=int, default=0, choices=[0,1],
                     help='whether to use 3D conv after ResNet18 for feature extraction')
 args = parser.parse_args()
 
@@ -42,9 +42,9 @@ embed_size = [int(x) for x in args.embed_size.split(',')]
 embed_dim = args.embed_dim
 window = args.window if args.window != 0 else None
 data_dir = args.data_dir
-use_3d = args.use_3d
+use_c3d = args.use_c3d
 
-model_spec = 'model_'+ 'insize' + str(image_size[0]) +'x' + str(image_size[1]) + '_emsize' + str(embed_size[0])+'x'+str(embed_size[1]) +'_lr' + str(args.learn_rate) + '_cluster' + str(args.clusters) + '_win' + str(args.window) + '_ref' + str(args.ref_frame) + '_batch' + str(args.batch_size) + '_use3D' + str(args.use_3d)
+model_spec = 'model_'+ 'insize' + str(image_size[0]) +'x' + str(image_size[1]) + '_emsize' + str(embed_size[0])+'x'+str(embed_size[1]) +'_lr' + str(args.learn_rate) + '_cluster' + str(args.clusters) + '_win' + str(args.window) + '_ref' + str(args.ref_frame) + '_batch' + str(args.batch_size) + '_c3d' + str(args.use_c3d)
 model_dir = os.path.join(os.path.dirname(__file__), model_spec)
 if not os.path.exists(model_dir):
     os.mkdir(model_dir)
@@ -73,7 +73,7 @@ with tf.variable_scope("clustering", reuse=tf.AUTO_REUSE):
 # embeddings extraction from intensity
 with tf.variable_scope("feature_extraction", reuse=tf.AUTO_REUSE):
     embeddings = feature_extractor(images[...,0:1], is_training = is_training,
-                                   embed_dim = embed_dim, use_3d = use_3d)
+                                   embed_dim = embed_dim, use_c3d = use_c3d)
     embeddings = tf.identity(embeddings, name='embeddings')
 
 # predict color based on similarity

@@ -12,7 +12,7 @@ def conv3d_block(input, output_dim, kernel, dilation, name, activation=True, is_
             block = tf.nn.relu(block)
         return block
 
-def feature_extractor(images, is_training, embed_dim, use_3d):
+def feature_extractor(images, is_training, embed_dim, use_c3d):
     # use tf slim to build ResNet18
     with tf.variable_scope('resnet', reuse=tf.AUTO_REUSE):
         # [N,T,H,W,C] -> [N*T,H,W,C]
@@ -46,7 +46,7 @@ def feature_extractor(images, is_training, embed_dim, use_3d):
         #Y = tf.expand_dims(tf.broadcast_to(Y, feat_shape[:-1]), axis=-1)
         #net = tf.concat([net, X, Y], axis=-1) 
 
-        if use_3d:
+        if use_c3d:
             net = conv3d_block(net, 256, 3, 1, name='conv1', is_training=is_training)
             net = conv3d_block(net, 256, 3, 2, name='conv2', is_training=is_training)
             net = conv3d_block(net, 256, 3, 4, name='conv3', is_training=is_training)
