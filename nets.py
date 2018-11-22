@@ -12,7 +12,7 @@ def conv3d_block(input, output_dim, kernel, dilation, name, activation=True, is_
             block = tf.nn.relu(block)
         return block
 
-def feature_extractor(images, is_training):
+def feature_extractor(images, is_training, embed_dim, use_3d):
     # use tf slim to build ResNet18
     with tf.variable_scope('resnet', reuse=tf.AUTO_REUSE):
         # [N,T,H,W,C] -> [N*T,H,W,C]
@@ -46,12 +46,14 @@ def feature_extractor(images, is_training):
         #Y = tf.expand_dims(tf.broadcast_to(Y, feat_shape[:-1]), axis=-1)
         #net = tf.concat([net, X, Y], axis=-1) 
 
-        net = conv3d_block(net, 256, 3, 1, name='conv1', is_training=is_training)
-        net = conv3d_block(net, 256, 3, 2, name='conv2', is_training=is_training)
-        net = conv3d_block(net, 256, 3, 4, name='conv3', is_training=is_training)
-        #net = conv3d_block(net, 256, 3, 8, name='conv4', is_training=is_training)
-        #net = conv3d_block(net, 256, 3, 16, name='conv5', is_training=is_training)
-        embeddings = tf.layers.conv3d(net, 64, [1, 1, 1], padding='SAME', name='conv6')
+        if use_3d:
+            net = conv3d_block(net, 256, 3, 1, name='conv1', is_training=is_training)
+            net = conv3d_block(net, 256, 3, 2, name='conv2', is_training=is_training)
+            net = conv3d_block(net, 256, 3, 4, name='conv3', is_training=is_training)
+            #net = conv3d_block(net, 256, 3, 8, name='conv4', is_training=is_training)
+            #net = conv3d_block(net, 256, 3, 16, name='conv5', is_training=is_training)
+
+        embeddings = tf.layers.conv3d(net, embed_dim, [1, 1, 1], padding='SAME', name='conv6')
     return embeddings
 
 def colorizer(ref_embed, ref_label, tag_embed, tag_label=None, temperature=1, window=None):
